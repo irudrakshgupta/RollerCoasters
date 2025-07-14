@@ -120,6 +120,19 @@ ext_modules = [
         ['zipline/pipeline/loaders/blaze/_core.pyx'],
         depends=['zipline/lib/adjustment.pxd'],
     ),
+    # New extensions for enhanced features
+    Extension(
+        'zipline.ml._ml_ext',
+        ['zipline/ml/_ml_ext.pyx'],
+    ),
+    Extension(
+        'zipline.risk._risk_ext',
+        ['zipline/risk/_risk_ext.pyx'],
+    ),
+    Extension(
+        'zipline.realtime._realtime_ext',
+        ['zipline/realtime/_realtime_ext.pyx'],
+    ),
 ]
 
 
@@ -198,106 +211,202 @@ def _conda_format(req):
 
 
 def read_requirements(path,
-                      conda_format=False,
-                      filter_names=None):
-    """
-    Read a requirements file, expressed as a path relative to Zipline root.
-    """
-    real_path = join(dirname(abspath(__file__)), path)
-    with open(real_path) as f:
-        reqs = _filter_requirements(f.readlines(), filter_names=filter_names,
-                                    filter_sys_version=not conda_format)
+                      filter_names=None,
+                      conda_format=False):
+    """Read requirements from a file.
 
-        if conda_format:
-            reqs = map(_conda_format, reqs)
+    Parameters
+    ----------
+    path : str
+        Path to the requirements file.
+    filter_names : set[str], optional
+        If provided, only include requirements for packages in this set.
+    conda_format : bool, optional
+        If True, format requirements for conda instead of pip.
 
-        return list(reqs)
+    Returns
+    -------
+    requirements : list[str]
+        List of requirement strings.
+    """
+    with open(path) as f:
+        requirements = list(_filter_requirements(
+            f,
+            filter_names=filter_names,
+            filter_sys_version=True,
+        ))
+
+    if conda_format:
+        requirements = [_conda_format(req) for req in requirements]
+
+    return requirements
 
 
 def install_requires(conda_format=False):
+    """Get the list of packages required for installation.
+
+    Parameters
+    ----------
+    conda_format : bool, optional
+        If True, format requirements for conda instead of pip.
+
+    Returns
+    -------
+    requirements : list[str]
+        List of requirement strings.
+    """
     return read_requirements('etc/requirements.in', conda_format=conda_format)
 
 
 def extras_requires(conda_format=False):
-    extras = {
-        extra: read_requirements('etc/requirements_{0}.in'.format(extra),
-                                 conda_format=conda_format)
-        for extra in ('dev', 'talib')
-    }
-    extras['all'] = [req for reqs in extras.values() for req in reqs]
+    """Get the list of packages required for development.
 
-    return extras
+    Parameters
+    ----------
+    conda_format : bool, optional
+        If True, format requirements for conda instead of pip.
+
+    Returns
+    -------
+    requirements : list[str]
+        List of requirement strings.
+    """
+    return read_requirements('etc/requirements-dev.in', conda_format=conda_format)
 
 
 def setup_requirements(requirements_path, module_names,
                        conda_format=False):
-    module_names = set(module_names)
-    module_lines = read_requirements(requirements_path,
-                                     conda_format=conda_format,
-                                     filter_names=module_names)
+    """Get the list of packages required for setup.
 
-    if len(set(module_lines)) != len(module_names):
-        raise AssertionError(
-            "Missing requirements. Looking for %s, but found %s."
-            % (module_names, module_lines)
-        )
-    return module_lines
+    Parameters
+    ----------
+    requirements_path : str
+        Path to the requirements file.
+    module_names : list[str]
+        List of module names to include.
+    conda_format : bool, optional
+        If True, format requirements for conda instead of pip.
 
-
-conda_build = os.path.basename(sys.argv[0]) in ('conda-build',  # unix
-                                                'conda-build-script.py')  # win
-
-setup_requires = setup_requirements(
-    'etc/requirements_build.in',
-    ('Cython', 'numpy'),
-    conda_format=conda_build,
-)
-
-conditional_arguments = {
-    'setup_requires' if not conda_build else 'build_requires': setup_requires,
-}
-
-if 'sdist' in sys.argv:
-    with open('README.rst') as f:
-        conditional_arguments['long_description'] = f.read()
+    Returns
+    -------
+    requirements : list[str]
+        List of requirement strings.
+    """
+    return read_requirements(
+        requirements_path,
+        filter_names=set(module_names),
+        conda_format=conda_format,
+    )
 
 
-setup(
-    name='zipline',
-    url="https://zipline.io",
-    version=versioneer.get_version(),
-    cmdclass=LazyBuildExtCommandClass(versioneer.get_cmdclass()),
-    description='A backtester for financial algorithms.',
-    entry_points={
-        'console_scripts': [
-            'zipline = zipline.__main__:main',
+if __name__ == '__main__':
+    # Get the long description from the README file
+    here = abspath(dirname(__file__))
+    with open(join(here, 'README.rst')) as f:
+        long_description = f.read()
+
+    setup(
+        name='zipline',
+        version=versioneer.get_version(),
+        cmdclass=versioneer.get_cmdclass(),
+        description='A Pythonic algorithmic trading library.',
+        long_description=long_description,
+        author='Quantopian Inc.',
+        author_email='opensource@quantopian.com',
+        url='https://www.zipline.io',
+        packages=find_packages(),
+        include_package_data=True,
+        install_requires=install_requires(),
+        extras_require={
+            'dev': extras_requires(),
+            'all': [
+                # Core ML dependencies
+                'scikit-learn>=1.0.0',
+                'tensorflow>=2.8.0',
+                'torch>=1.12.0',
+                'xgboost>=1.5.0',
+                'lightgbm>=3.3.0',
+                
+                # GPU acceleration
+                'cupy-cuda11x>=10.0.0',
+                'numba>=0.56.0',
+                
+                # Real-time processing
+                'kafka-python>=2.0.0',
+                'websockets>=10.0',
+                'aiohttp>=3.8.0',
+                'asyncio-mqtt>=0.11.0',
+                
+                # Advanced data sources
+                'yfinance>=0.1.70',
+                'alpha-vantage>=2.3.0',
+                'polygon-api-client>=1.0.0',
+                'iexfinance>=0.4.0',
+                
+                # Visualization
+                'plotly>=5.0.0',
+                'dash>=2.0.0',
+                'bokeh>=2.4.0',
+                'holoviews>=1.14.0',
+                
+                # Web APIs
+                'fastapi>=0.75.0',
+                'uvicorn>=0.17.0',
+                'graphql-core>=3.2.0',
+                'grpcio>=1.44.0',
+                
+                # Cloud & deployment
+                'kubernetes>=18.0.0',
+                'docker>=5.0.0',
+                'boto3>=1.24.0',
+                'google-cloud-storage>=2.0.0',
+                
+                # Advanced analytics
+                'scipy>=1.8.0',
+                'statsmodels>=0.13.0',
+                'arch>=5.0.0',
+                'pykalman>=0.9.5',
+                
+                # Risk management
+                'pyfolio>=0.9.2',
+                'empyrical>=0.5.5',
+                'pyfin>=0.1.0',
+                
+                # Data quality
+                'great-expectations>=0.15.0',
+                'pandera>=0.8.0',
+                'cerberus>=1.3.0',
+                
+                # Performance monitoring
+                'prometheus-client>=0.12.0',
+                'jaeger-client>=4.8.0',
+                'opentelemetry-api>=1.10.0',
+                
+                # Development tools
+                'jupyter>=1.0.0',
+                'ipywidgets>=7.6.0',
+                'voila>=0.3.0',
+                'streamlit>=1.20.0',
+            ]
+        },
+        setup_requires=setup_requirements(
+            'etc/requirements-setup.in',
+            ['Cython', 'numpy'],
+        ),
+        ext_modules=ext_modules,
+        cmdclass=LazyBuildExtCommandClass(),
+        classifiers=[
+            'Development Status :: 4 - Beta',
+            'Intended Audience :: Financial and Insurance Industry',
+            'License :: OSI Approved :: Apache Software License',
+            'Operating System :: OS Independent',
+            'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.9',
+            'Programming Language :: Python :: 3.10',
+            'Programming Language :: Python :: 3.11',
+            'Topic :: Office/Business :: Financial :: Investment',
         ],
-    },
-    author='Quantopian Inc.',
-    author_email='opensource@quantopian.com',
-    packages=find_packages(include=['zipline', 'zipline.*']),
-    ext_modules=ext_modules,
-    include_package_data=True,
-    package_data={root.replace(os.sep, '.'):
-                  ['*.pyi', '*.pyx', '*.pxi', '*.pxd']
-                  for root, dirnames, filenames in os.walk('zipline')
-                  if '__pycache__' not in root},
-    license='Apache 2.0',
-    classifiers=[
-        'Development Status :: 4 - Beta',
-        'License :: OSI Approved :: Apache Software License',
-        'Natural Language :: English',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Operating System :: OS Independent',
-        'Intended Audience :: Science/Research',
-        'Topic :: Office/Business :: Financial',
-        'Topic :: Scientific/Engineering :: Information Analysis',
-        'Topic :: System :: Distributed Computing',
-    ],
-    install_requires=install_requires(conda_format=conda_build),
-    extras_require=extras_requires(conda_format=conda_build),
-    **conditional_arguments
-)
+        python_requires='>=3.8',
+        zip_safe=False,
+    )
