@@ -252,7 +252,7 @@ class TradingAlgorithm:
         self.data_portal = data_portal
 
         # The asset finder that will resolve assets for the algorithm.
-        self.asset_finder = asset_finder
+            self.asset_finder = asset_finder
 
         # The trading calendar for the algorithm.
         self.trading_calendar = trading_calendar
@@ -261,7 +261,7 @@ class TradingAlgorithm:
         self.metrics_set = metrics_set
 
         # The blotter that will track orders and positions.
-        self.blotter = blotter
+            self.blotter = blotter
 
         # The blotter class to use if no blotter is provided.
         self.blotter_class = blotter_class
@@ -331,7 +331,7 @@ class TradingAlgorithm:
         self.benchmark_source = None
 
         # The metrics tracker.
-        self.metrics_tracker = None
+            self.metrics_tracker = None
 
         # The generator for the algorithm.
         self.generator = None

@@ -132,10 +132,3 @@ def initialize(context):
 ## 💡 **Contributing & Community**
 - **Fork this repo** and submit a pull request
 - **Open issues** for bugs, features, or questions
-- **Join the discussion**: [GitHub Discussions](https://github.com/yourusername/rollercoaster/discussions)
-- **Follow for updates**: [@yourusername](https://github.com/yourusername)
-
----
-
-**Ready to build the future of trading? [Fork RollerCoaster now!](https://github.com/yourusername/rollercoaster/fork)**
-
